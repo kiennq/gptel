@@ -592,7 +592,10 @@ Also format its value in the Transient menu."
     ("T" "Continue tool calls"
      (lambda () (interactive) (gptel--handle-tool-use gptel--fsm-last))
      :if (lambda () (and gptel--fsm-last
-                    (eq (gptel-fsm-state gptel--fsm-last) 'TOOL))))]]
+                         (eq (gptel-fsm-state gptel--fsm-last) 'TOOL))))]
+   ["" "Misc"
+    ("c" "Chat" gptel)
+    ("q" "Quit" transient-quit-one)]]
   [["Request Parameters"
     (gptel--infix-variable-scope)
     (gptel--infix-provider)
@@ -608,12 +611,12 @@ Also format its value in the Transient menu."
      :if (lambda () (and gptel-expert-commands (not gptel-mode))))
     (gptel--infix-track-media
      :if (lambda () (and gptel-mode (gptel--model-capable-p 'media))))]
-   [" <Prompt from"
+   ["<Prompt from"
     ("m" "Minibuffer instead" "m")
     ("y" "Kill-ring instead" "y")
     ""
     ("i" "Respond in place" "i")]
-   [" >Response to"
+   [">Response to"
     ("e" "Echo area" "e")
     ("b" "Other buffer" "b"
      :class transient-option
@@ -751,7 +754,8 @@ Customize `gptel-directives' for task-specific prompts."
             'gptel-system-prompt
             (gptel--setup-directive-menu
              'gptel--system-message "Directive" t)))
-    :pad-keys t])
+    :pad-keys t]
+   [("q" "Quit" transient-quit-one)])
 
 ;; ** Prefix for selecting tools
 
