@@ -430,11 +430,12 @@ INFO is the async communication channel for the rewrite request."
             (kill-buffer proc-buf))
           (when (buffer-live-p buf)
             (with-current-buffer buf
+              (gptel--update-status  " Ready" 'success)
               (pulse-momentary-highlight-region (overlay-start ov) (overlay-end ov))
               (add-hook 'eldoc-documentation-functions #'gptel--rewrite-key-help nil 'local)
               ;; (overlay-put ov 'gptel-rewrite response)
               (overlay-put ov 'face 'gptel-rewrite-highlight-face)
-	      (overlay-put ov 'priority 2000)
+              (overlay-put ov 'priority 2000)
               (overlay-put ov 'keymap gptel-rewrite-actions-map)
               (overlay-put ov 'mouse-face 'highlight)
               (overlay-put
