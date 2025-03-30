@@ -1448,21 +1448,20 @@ file."
 (defvar gptel--fsm-last)                ;Defined further below
 (defun gptel--update-status (&optional msg face)
   "Update status MSG in FACE."
-  (when gptel-mode
-    (if gptel-use-header-line
-        (and (consp header-line-format)
-             (setf (nth 1 header-line-format)
-                   (thread-first
-                     msg
-                     (buttonize (lambda (_) (gptel--inspect-fsm)))
-                     (propertize 'face face 'mouse-face 'highlight))))
-      (if (member msg '(" Typing..." " Waiting..."))
-          (setq mode-line-process (propertize msg 'face face))
-        (setq mode-line-process
-              '(:eval (concat " "
-                       (buttonize (gptel--model-name gptel-model)
-                            (lambda (&rest _) (gptel-menu))))))
-        (message (propertize msg 'face face))))
+  (if gptel-use-header-line
+      (and (consp header-line-format)
+           (setf (nth 1 header-line-format)
+                 (thread-first
+                   msg
+                   (buttonize (lambda (_) (gptel--inspect-fsm)))
+                   (propertize 'face face 'mouse-face 'highlight))))
+    (if (member msg '(" Typing..." " Waiting..."))
+        (setq mode-line-process (propertize msg 'face face))
+      (setq mode-line-process
+            '(:eval (concat " "
+                            (buttonize (gptel--model-name gptel-model)
+                                       (lambda (&rest _) (gptel-menu))))))
+      (message (propertize msg 'face face)))
     (force-mode-line-update)))
 
 (declare-function gptel-context--wrap "gptel-context")
@@ -2022,13 +2021,13 @@ No state transition here since that's handled by the process sentinels."
          (gptel-buffer (marker-buffer start-marker)))
     (with-current-buffer gptel-buffer
       (if (not tracking-marker)         ;Empty response
-          (when gptel-mode (gptel--update-status " Empty response" 'success))
+          (gptel--update-status " Empty response" 'success)
         (pulse-momentary-highlight-region start-marker tracking-marker)
         (when gptel-mode
           (save-excursion (goto-char tracking-marker)
                           (insert gptel-response-separator
-                                  (gptel-prompt-prefix-string)))
-          (gptel--update-status  " Ready" 'success))))
+                                  (gptel-prompt-prefix-string))))
+        (gptel--update-status  " Ready" 'success)))
     ;; Run hook in visible window to set window-point, BUG #269
     (if-let* ((gptel-window (get-buffer-window gptel-buffer 'visible)))
         (with-selected-window gptel-window
@@ -2061,9 +2060,8 @@ Run post-response hooks."
       (when-let* ((error-msg (plist-get error-data :message)))
         (message "%s error: (%s) %s" backend-name http-msg (string-trim error-msg))))
     (with-current-buffer gptel-buffer
-      (when gptel-mode
-        (gptel--update-status
-         (format " Error: %s" http-msg) 'error)))
+      (gptel--update-status
+       (format " Error: %s" http-msg) 'error))
     (if-let* ((gptel-window (get-buffer-window gptel-buffer 'visible)))
         (with-selected-window gptel-window
           (run-hook-with-args
@@ -2084,9 +2082,8 @@ Run post-response hooks."
               (ntools (length tool-use))
               (tool-idx 0))
     (with-current-buffer (plist-get info :buffer)
-      (when gptel-mode
-        (gptel--update-status
-         (format " Calling tool..." ) 'mode-line-emphasis))
+      (gptel--update-status
+       (format " Calling tool..." ) 'mode-line-emphasis)
 
       (let ((result-alist) (pending-calls))
         (mapc                           ; Construct function calls
@@ -2138,8 +2135,7 @@ Run post-response hooks."
          tool-use)
         (when pending-calls
           (setq gptel--fsm-last fsm)
-          (when gptel-mode (gptel--update-status
-                            (format " Run tools?" ) 'mode-line-emphasis))
+          (gptel--update-status (format " Run tools?" ) 'mode-line-emphasis)
           (funcall (plist-get info :callback)
                    (cons 'tool-call pending-calls) info))))))
 
@@ -2411,7 +2407,7 @@ BUF defaults to the current buffer."
       (let (kill-buffer-query-functions)
         (kill-buffer proc)))            ;Can't stop url-retrieve process
     (with-current-buffer buf
-      (when gptel-mode (gptel--update-status  " Abort" 'error)))
+      (gptel--update-status  " Abort" 'error))
     (message "Stopped gptel request in buffer %S" (buffer-name buf))))
 
 ;; TODO: Handle multiple requests(#15). (Only one request from one buffer at a time?)
