@@ -1328,7 +1328,7 @@ This sets the variable `gptel-include-tool-results', which see."
                           (get-char-property (point) 'read-only))
                 (insert reduced-prompt))
               (setq position (point))
-              (when (and gptel-mode (not dry-run))
+              (when (not dry-run)
                 (gptel--update-status " Waiting..." 'warning)))))
          ;; Insert into new gptel session
          (t (setq buffer
