@@ -571,6 +571,11 @@ Also format its value in the Transient menu."
    [:pad-keys t ""
     (:info #'gptel--describe-infix-context
      :face transient-heading :format "%d")
+    (" a" "DWIM to context"
+     (lambda () (interactive)
+       (call-interactively 'gptel-add)
+       (transient-setup))
+     :transient t)
     (gptel--infix-context-add-region)
     (gptel--infix-context-add-buffer)
     (gptel--infix-context-add-file)
