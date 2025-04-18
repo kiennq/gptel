@@ -331,15 +331,10 @@ Mutate state INFO with response metadata."
   "Format TOOL-ID for OpenAI.
 
 If the ID has the format used by a different backend, use as-is."
-  (if (or (string-prefix-p "toolu_" tool-id) ;#747
-          (string-prefix-p "call_"  tool-id))
-      tool-id
-    (format "call_%s" tool-id)))
+  tool-id)
 
 (defun gptel--openai-unformat-tool-id (tool-id)
-  (or (and (string-match "call_\\(.+\\)" tool-id)
-           (match-string 1 tool-id))
-      tool-id))
+  tool-id)
 
 ;; NOTE: No `gptel--inject-prompt' method required for gptel-openai, since this
 ;; is handled by its defgeneric implementation
