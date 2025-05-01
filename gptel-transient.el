@@ -561,7 +561,6 @@ Also format its value in the Transient menu."
 (transient-define-prefix gptel-menu ()
   "Change parameters of prompt to send to the LLM."
   :incompatible '(("m" "y" "i") ("e" "g" "b" "k"))
-  :refresh-suffixes t
   ;; :value (list (concat "b" (buffer-name)))
   [:description gptel-system-prompt--format
    [""
@@ -594,11 +593,7 @@ Also format its value in the Transient menu."
                                                  'face 'warning)
                                 ")"))))
         :format "%d" :face transient-heading)
-    (gptel--infix-set-tools)
-    (gptel--infix-remove-tools
-     :if (lambda () (length> gptel-tools 0)))
-    (gptel--infix-remove-all-tools
-     :if (lambda () (length> gptel-tools 0)))
+    ("t" "Select tools" gptel-tools :transient t)
     ("T" "Continue tool calls"
      (lambda () (interactive) (gptel--handle-tool-use gptel--fsm-last))
      :if (lambda () (and gptel--fsm-last
@@ -776,110 +771,102 @@ Customize `gptel-directives' for task-specific prompts."
 
 (defun gptel--completing-read-multiple-tools (prompt candidate-tools)
   "completing-read-multiple with tools."
-  (let ((padded-candidate-len
-         (+ 3 (apply #'max (map-keys-apply #'length candidate-tools)))))
-    (cl-loop for selection in
-             ;; Without this, when duplicate values are selected in
-             ;; `completing-read-multiple', it will result in a circular-list error
-             (seq-uniq
-              (completing-read-multiple
-               prompt
-               (lambda (string pred action)
-                 (if (eq action 'metadata)
-                     '(metadata
-                       (annotation-function . gptel--tools-annotation-function)
-                       (category . gptel-tool))
-                   (complete-with-action
-                    action
-                    (cl-loop for (tool-name . tools) in candidate-tools
-                             collect
-                             (propertize
-                              (string-pad tool-name padded-candidate-len)
-                              'description
-                              (if (length= tools 1)
-                                  (gptel--describe-directive
-                                   (gptel-tool-description (car tools))
-                                   (- (window-width) 40))
-                                (concat
-                                 "category: ("
-                                 (string-join (mapcar
-                                               (lambda (tool)
-                                                 (gptel-tool-name tool))
-                                               tools)
-                                              ", ")
-                                 ")"))))
-                    string
-                    pred)))
-               nil t)
-              #'string-equal)
-             nconc (alist-get (string-trim-right selection) candidate-tools nil nil #'string-equal))))
+  (cl-loop for selection in
+           ;; Without this, when duplicate values are selected in
+           ;; `completing-read-multiple', it will result in a circular-list error
+           (seq-uniq
+            (completing-read-multiple
+             prompt
+             (lambda (string pred action)
+               (if (eq action 'metadata)
+                   '(metadata
+                     (annotation-function . gptel--tools-annotation-function)
+                     (category . gptel-tool))
+                 (complete-with-action
+                  action
+                  (cl-loop for (tool-name . tools) in candidate-tools
+                           collect
+                           (propertize
+                            tool-name
+                            'description
+                            (if (length= tools 1)
+                                (gptel--describe-directive
+                                 (gptel-tool-description (car tools))
+                                 (- (window-width) 40))
+                              (concat
+                               "[category] "
+                               (string-join (mapcar
+                                             (lambda (tool)
+                                               (gptel-tool-name tool))
+                                             tools)
+                                            ", ")))))
+                  string
+                  pred)))
+             nil t)
+            #'string-equal)
+           nconc (alist-get (string-trim-right selection) candidate-tools nil nil #'string-equal)))
 
-(transient-define-infix gptel--infix-set-tools ()
+(transient-define-suffix gptel--suffix-set-tools ()
   "Set tools to use."
   :description "Select tools"
-  :class 'gptel-lisp-variable
-  :prompt "Select tools: "
-  :display-nil ""
   :format " %k %d"
-  :variable 'gptel-tools
-  :set-value #'gptel--set-with-scope
-  :key "tt"
-  :reader (lambda (prompt &rest _)
-            (seq-uniq
-             (append gptel-tools
-                     (gptel--completing-read-multiple-tools
-                      prompt
-                      (let ((gptel-tools--names (mapcar (lambda (tool) (gptel-tool-name tool)) gptel-tools)))
-                        (cl-loop for (cat . tools-alist) in gptel--known-tools
-                                 for filtered-tools-alist = (cl-loop for (tool_name . tool) in tools-alist
-                                                                     unless (memq tool_name gptel-tools--names)
-                                                                     nconc
-                                                                     `(,(cons (concat cat "::" tool_name)
-                                                                              `(,tool))))
-                                 if (length> filtered-tools-alist 0)
-                                 nconc `(,(cons cat
-                                                (flatten-list (map-values filtered-tools-alist))))
-                                 and nconc filtered-tools-alist))))
-             #'equal)))
+  :transient 'transient--do-return
+  :key "/"
+  (interactive)
+  (gptel--set-with-scope
+   'gptel-tools
+   (seq-uniq
+    (append gptel-tools
+            (gptel--completing-read-multiple-tools
+             "Select tools: "
+             (let ((gptel-tools--names (mapcar (lambda (tool) (gptel-tool-name tool)) gptel-tools)))
+               (cl-loop for (cat . tools-alist) in gptel--known-tools
+                        for filtered-tools-alist = (cl-loop for (tool_name . tool) in tools-alist
+                                                            unless (memq tool_name gptel-tools--names)
+                                                            nconc
+                                                            `(,(cons (concat cat "::" tool_name)
+                                                                     `(,tool))))
+                        if (length> filtered-tools-alist 0)
+                        nconc `(,(cons cat
+                                       (flatten-list (map-values filtered-tools-alist))))
+                        and nconc filtered-tools-alist))))
+    #'equal)
+   gptel--set-buffer-locally))
 
-(transient-define-infix gptel--infix-remove-tools ()
+(transient-define-suffix gptel--suffix-remove-tools ()
   "Remove tools being used."
   :description "Remove tools"
-  :class 'gptel-lisp-variable
-  :prompt "Remove tools: "
-  :display-nil "none"
   :format " %k %d"
-  :variable 'gptel-tools
-  :set-value #'gptel--set-with-scope
-  :key "tr"
-  :reader (lambda (prompt &rest _)
-            (seq-difference
-             gptel-tools
-             (gptel--completing-read-multiple-tools
-              prompt
-              (let ((category-candidates))
-                (append
-                 (mapcar
-                  (lambda (tool)
-                    (let ((category (gptel-tool-category tool)))
-                      (push tool
-                            (alist-get category category-candidates
-                                       nil nil #'string-equal))
-                      (list (concat category "::" (gptel-tool-name tool)) tool)))
-                  gptel-tools)
-                 category-candidates))))))
+  :transient 'transient--do-return
+  :key "?"
+  (interactive)
+  (gptel--set-with-scope
+   'gptel-tools
+   (seq-difference
+    gptel-tools
+    (gptel--completing-read-multiple-tools
+     "Remove tools: "
+     (let ((category-candidates))
+       (append
+        (mapcar
+         (lambda (tool)
+           (let ((category (gptel-tool-category tool)))
+             (push tool
+                   (alist-get category category-candidates
+                              nil nil #'string-equal))
+             (list (concat category "::" (gptel-tool-name tool)) tool)))
+         gptel-tools)
+        category-candidates))))
+   gptel--set-buffer-locally))
 
-(transient-define-infix gptel--infix-remove-all-tools ()
+(transient-define-suffix gptel--suffix-remove-all-tools ()
   "Remove all tools being used."
   :description "Remove all tools"
-  :class 'gptel-lisp-variable
-  :prompt "Remove tools"
-  :display-nil "none"
   :format " %k %d"
-  :variable 'gptel-tools
-  :set-value (lambda (&rest _) (interactive) (gptel--set-with-scope 'gptel-tools nil gptel--set-buffer-locally))
-  :key "tR"
-  :reader (lambda (&rest _) (interactive)))
+  :transient 'transient--do-return
+  :key "D"
+  (interactive)
+  (gptel--set-with-scope 'gptel-tools nil gptel--set-buffer-locally))
 
 ;;;###autoload (autoload 'gptel-tools "gptel-transient" nil t)
 (transient-define-prefix gptel-tools ()
@@ -899,6 +886,12 @@ only (\"oneshot\")."
     (gptel--infix-use-tools)
     (gptel--infix-confirm-tool-calls)
     (gptel--infix-include-tool-results)]
+   [""
+    (gptel--suffix-set-tools)
+    (gptel--suffix-remove-tools
+     :if (lambda () (length> gptel-tools 0)))
+    (gptel--suffix-remove-all-tools
+     :if (lambda () (length> gptel-tools 0)))]
    [""
     ("RET" "Confirm selection"
      (lambda (args)
