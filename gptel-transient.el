@@ -202,7 +202,7 @@ Handle formatting for system messages when the active
               (propertize "]" 'face 'transient-heading))
     (if message
         (gptel--describe-directive
-         message (max (- (window-width) 12) 14) "⮐ ")
+         message (max (- (window-width) 12) 14) "⏎ ")
       "[No system message set]")))
 
 (defun gptel--tools-init-value (obj)
@@ -353,7 +353,7 @@ which see."
 				       (len (length val)))
 				 (ptv (concat
                                        "\"" (string-replace
-					     "\n" "⮐"
+					     "\n" "⏎"
 					     (truncate-string-to-width
 					      val 20 nil nil t))
 				       "\"" (when (> len 20)
@@ -715,7 +715,7 @@ If EXTERNAL is non-nil, include external sources of directives."
                           (concat "(" (gptel--describe-directive prompt (- width 30)) ")")
                           'face 'shadow))
                  `(lambda () (interactive)
-                    (message "%s: %s" ,msg ,(gptel--describe-directive prompt 100 "⮐ "))
+                    (message "%s: %s" ,msg ,(gptel--describe-directive prompt 100 "⏎ "))
                     (gptel--set-with-scope ',sym ',prompt gptel--set-buffer-locally))
 	         :transient 'transient--do-return)
            into prompt-suffixes
