@@ -290,7 +290,10 @@ Then we need a session token."
                       ("vscode-sessionid" . ,(or (gptel--gh-sessionid gptel-backend) ""))
                       ("vscode-machineid" . ,(or (gptel--gh-machineid gptel-backend) ""))
                       ,@(when (and gptel-track-media
-                                   (gptel--model-capable-p 'media))
+                                   (gptel--model-capable-p 'media)
+                                   (cl-some (lambda (i) (and (plist-member i :media)
+                                                             (gptel--parsable-part i 'media)))
+                                            (gptel--parse-media-links major-mode (point-min) (point-max))))
                           `(("copilot-vision-request" . "true")))
                       ("copilot-integration-id" . "vscode-chat"))))
           (host "api.githubcopilot.com")

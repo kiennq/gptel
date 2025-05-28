@@ -329,7 +329,8 @@ format."
    for part in parts
    for n upfrom 1
    with last = (length parts)
-   for text = (plist-get part :text)
+   for text = (when-let* ((ranges (plist-get part :text)))
+                (apply #'buffer-substring-no-properties ranges))
    for media = (plist-get part :media)
    if text do
    (and (or (= n 1) (= n last)) (setq text (gptel--trim-prefixes text))) and
@@ -337,15 +338,19 @@ format."
    collect (list :text text) into parts-array end
    else if media
    collect
-   `(:inline_data
-     (:mime_type ,(plist-get part :mime)
-      :data ,(gptel--base64-encode media)))
+   (if (gptel--parsable-part part 'media)
+       `(:inline_data
+         (:mime_type ,(plist-get part :mime)
+                     :data ,(gptel--base64-encode media)))
+     `(:text ,media))
    into parts-array
    else if (plist-get part :textfile)
    collect
-   (list :text (with-temp-buffer
-                 (gptel--insert-file-string (plist-get part :textfile))
-                 (buffer-string)))
+   (if (gptel--parsable-part part 'textfile)
+       (list :text (with-temp-buffer
+                     (gptel--insert-file-string (plist-get part :textfile))
+                     (buffer-string)))
+     `(:text ,(plist-get part :textfile)))
    into parts-array
    finally return (vconcat parts-array)))
 

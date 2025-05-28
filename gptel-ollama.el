@@ -221,19 +221,25 @@ format."
    for part in parts
    for n upfrom 1
    with last = (length parts)
-   for text = (plist-get part :text)
+   for text = (when-let* ((ranges (plist-get part :text)))
+                (apply #'buffer-substring-no-properties ranges))
    for media = (plist-get part :media)
+   for valid-media = (gptel--parsable-part part 'media)
    if text do
    (and (or (= n 1) (= n last)) (setq text (gptel--trim-prefixes text))) and
    if text
    collect text into text-array end
-   else if media
+   else if (and valid-media media)
    collect (gptel--base64-encode media) into media-array
+   else if (and (not valid-media) media)
+   collect media into text-array
    else if (plist-get part :textfile)
    collect
-   (with-temp-buffer
-     (gptel--insert-file-string (plist-get part :textfile))
-     (buffer-string))
+   (if (gptel--parsable-part part 'textfile)
+       (with-temp-buffer
+         (gptel--insert-file-string (plist-get part :textfile))
+         (buffer-string))
+     (plist-get part :textfile))
    into text-array
    finally return
    `(,@(and text-array  (list :content (mapconcat #'identity text-array " ")))

@@ -2886,12 +2886,11 @@ BACKEND is the LLM backend in use.")
 MODE is the major-mode of the buffer.
 
 Returns a plist where each entry is of the form
-  (:text \"some text\")
+  (:text (begin region-end))
 or
   (:media \"media uri or file path\")."
   (ignore mode)                         ;byte-compiler
-  (list `(:text ,(buffer-substring-no-properties
-                  beg end))))
+  (list `(:text (,beg ,end))))
 
 (defvar markdown-regex-link-inline)
 (defvar markdown-regex-angle-uri)
@@ -2902,9 +2901,9 @@ or
   "Parse text and actionable links between BEG and END.
 
 Return a list of the form
- ((:text \"some text\")
+ ((:text (range-begin range-end))
   (:media \"/path/to/media.png\" :mime \"image/png\")
-  (:text \"More text\"))
+  (:text (range-begin range-end)))
 for inclusion into the user prompt for the gptel request."
   (require 'mailcap)                    ;FIXME Avoid this somehow
   (let ((parts) (from-pt) (mime))
@@ -2925,24 +2924,35 @@ for inclusion into the user prompt for the gptel request."
                       '("https:" "http:" "ftp:"))
             ;; Collect text up to this image, and collect this image url
             (when (gptel--model-capable-p 'url) ; FIXME This is not a good place
-                                        ; to check for url capability!
-              (let ((text (buffer-substring-no-properties from-pt (car link-at-pt))))
-                (unless (string-blank-p text) (push (list :text text) parts))
-                (push (list :url path :mime mime) parts)
-                (setq from-pt (cadr link-at-pt)))))
-           ((file-readable-p path)
-            (if (or (not (gptel--file-binary-p path))
-                    (and (setq mime (mailcap-file-name-to-mime-type path))
-                         (gptel--model-mime-capable-p mime)))
-                ;; Collect text up to this image, and collect this image
-                (let ((text (buffer-substring-no-properties from-pt (car link-at-pt))))
-                  (unless (string-blank-p text) (push (list :text text) parts))
-                  (push (if mime (list :media path :mime mime) (list :textfile path)) parts)
-                  (setq from-pt (cadr link-at-pt)))
-              (message "Ignoring unsupported binary file \"%s\"." path)))))))
+                                                ; to check for url capability!
+              (push (list :text (list from-pt (car link-at-pt)))
+                    parts)
+              (push (list :url path :mime mime) parts)
+              (setq from-pt (cadr link-at-pt))))
+           (t
+            (setq mime (mailcap-file-name-to-mime-type path))
+            ;; Collect text up to this image, and collect this image
+            (push (list :text (list from-pt (car link-at-pt))) parts)
+            (push (if mime (list :media path :mime mime) (list :textfile path)) parts)
+            (setq from-pt (cadr link-at-pt)))))))
     (unless (= from-pt end)
-      (push (list :text (buffer-substring-no-properties from-pt end)) parts))
+      (push (list :text (list from-pt end)) parts))
     (nreverse parts)))
+
+(defun gptel--parsable-part (part kind)
+  "Return non-nil if PART is parsable by gptel with KIND.
+PART is an item returned from `gptel--parse-media-links'.
+KIND can be one of media, textfile or text."
+  (pcase kind
+    (`media
+     (and-let* ((media (plist-get part :media))
+                (p (file-readable-p media))
+                (p (gptel--model-mime-capable-p (plist-get part :mime))))))
+    (`textfile
+     (and-let* ((textfile (plist-get part :textfile))
+                (p (file-readable-p textfile))
+                (p (not (gptel--file-binary-p textfile))))))
+    (`text (plist-member part :text))))
 
 (cl-defgeneric gptel--wrap-user-prompt (backend _prompts)
   "Wrap the last prompt in PROMPTS with gptel's context.

@@ -437,9 +437,9 @@ If the ID has the format used by a different backend, use as-is."
   "Convert a multipart prompt PARTS to the OpenAI API format.
 
 The input is an alist of the form
- ((:text \"some text\")
+ ((:text (range-begin range-end))
   (:media \"/path/to/media.png\" :mime \"image/png\")
-  (:text \"More text\")).
+  (:text (range-begin range-end))).
 
 The output is a vector of entries in a backend-appropriate
 format."
@@ -447,22 +447,27 @@ format."
    for part in parts
    for n upfrom 1
    with last = (length parts)
-   for text = (plist-get part :text)
+   for text = (when-let* ((ranges (plist-get part :text)))
+                (apply #'buffer-substring-no-properties ranges))
    for media = (plist-get part :media)
    if text do
    (and (or (= n 1) (= n last)) (setq text (gptel--trim-prefixes text)))
    and if text
    collect `(:type "text" :text ,text) into parts-array end
    else if media collect
-   `(:type "image_url"
-     :image_url (:url ,(concat "data:" (plist-get part :mime)
-                        ";base64," (gptel--base64-encode media))))
+   (if (gptel--parsable-part part 'media)
+       `(:type "image_url"
+               :image_url (:url ,(concat "data:" (plist-get part :mime)
+                                         ";base64," (gptel--base64-encode media))))
+     `(:type "text" :text ,media))
    into parts-array
    else if (plist-get part :textfile) collect
-   `(:type "text"
-     :text ,(with-temp-buffer
-              (gptel--insert-file-string (plist-get part :textfile))
-              (buffer-string)))
+   (if (gptel--parsable-part part 'textfile)
+       `(:type "text"
+               :text ,(with-temp-buffer
+                        (gptel--insert-file-string (plist-get part :textfile))
+                        (buffer-string)))
+     `(:type "text" :text ,(plist-get part :textfile)))
    into parts-array end and
    if (plist-get part :url)
    collect

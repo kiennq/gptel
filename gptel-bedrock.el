@@ -440,7 +440,8 @@ The output is a vector of entries in Bedrock API format."
     (cl-maplist
      (lambda (tail)
        (let* ((part (car tail))
-              (text (plist-get part :text))
+              (text (when-let* ((ranges (plist-get part :text)))
+                      (apply #'buffer-substring-no-properties ranges)))
               (mime (plist-get part :mime))
               (media (plist-get part :media))
               (textfile (plist-get part :textfile))
@@ -451,17 +452,22 @@ The output is a vector of entries in Bedrock API format."
                 (unless (string-empty-p text)
                   `(:text ,text)))
           (media
-           (cond
-            ((setq format (assoc mime gptel-bedrock--image-formats))
-             `(:image (:format ,(cdr format) :source (:bytes ,(gptel--base64-encode media)))))
-            ((setq format (assoc mime gptel-bedrock--doc-formats))
-             `(:document (:format ,(cdr format)
-                          :name ,(file-name-nondirectory media)
-                          :source (:bytes ,(gptel--base64-encode media)))))
-            (t (error "Unsupported MIME type %s for AWS Bedrock" mime))))
-          (textfile `(:text ,(with-temp-buffer
-                               (gptel--insert-file-string textfile)
-                               (buffer-string))))))))
+           (if (gptel--parsable-part part 'media)
+               (cond
+                ((setq format (assoc mime gptel-bedrock--image-formats))
+                 `(:image (:format ,(cdr format) :source (:bytes ,(gptel--base64-encode media)))))
+                ((setq format (assoc mime gptel-bedrock--doc-formats))
+                 `(:document (:format ,(cdr format)
+                                      :name ,(file-name-nondirectory media)
+                                      :source (:bytes ,(gptel--base64-encode media)))))
+                (t (error "Unsupported MIME type %s for AWS Bedrock" mime)))
+             `(:text ,media)))
+          (textfile
+           (if (gptel--parsable-part part 'textfile)
+               `(:text ,(with-temp-buffer
+                          (gptel--insert-file-string textfile)
+                          (buffer-string)))
+             `(:text ,textfile)))))))
     (delq nil)
     (vconcat)))
 

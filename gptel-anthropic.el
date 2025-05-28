@@ -432,7 +432,8 @@ format."
    for n upfrom 1
    with last = (length parts)
    with type
-   for text = (plist-get part :text)
+   for text = (when-let* ((ranges (plist-get part :text)))
+                (apply #'buffer-substring-no-properties ranges))
    for mime = (plist-get part :mime)
    for media = (plist-get part :media)
    if text do
@@ -449,19 +450,23 @@ format."
                                  "trying to send unsupported MIME type %s")
                          mime))))
    and collect
-   `(:type ,type
-     :source (:type "base64"
-              :media_type ,(plist-get part :mime)
-              :data ,(gptel--base64-encode media))
-     ;; TODO Make media caching a user option
-     ,@(and (gptel--model-capable-p 'cache)
-        '(:cache_control (:type "ephemeral"))))
+   (if (gptel--parsable-part part 'media)
+       `(:type ,type
+               :source (:type "base64"
+                              :media_type ,(plist-get part :mime)
+                              :data ,(gptel--base64-encode media))
+               ;; TODO Make media caching a user option
+               ,@(and (gptel--model-capable-p 'cache)
+                      '(:cache_control (:type "ephemeral"))))
+     `(:type "text" :text ,media))
    into parts-array
    else if (plist-get part :textfile) collect
-   `(:type "text"
-     :text ,(with-temp-buffer
-              (gptel--insert-file-string (plist-get part :textfile))
-              (buffer-string)))
+   (if (gptel--parsable-part part 'textfile)
+       `(:type "text"
+               :text ,(with-temp-buffer
+                        (gptel--insert-file-string (plist-get part :textfile))
+                        (buffer-string)))
+     `(:type "text" :text ,(plist-get part :textfile)))
    into parts-array
    finally return (vconcat parts-array)))
 

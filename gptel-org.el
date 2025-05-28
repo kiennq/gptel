@@ -336,9 +336,9 @@ unescapes the remainder."
   "Parse text and actionable links between BEG and END.
 
 Return a list of the form
- ((:text \"some text\")
+ ((:text (range-begin range-end))
   (:media \"/path/to/media.png\" :mime \"image/png\")
-  (:text \"More text\"))
+  (:text (range-begin range-end)))
 for inclusion into the user prompt for the gptel request."
   (require 'mailcap)                    ;FIXME Avoid this somehow
   (let ((parts) (from-pt) (mime)
@@ -365,9 +365,8 @@ for inclusion into the user prompt for the gptel request."
                            (gptel--model-mime-capable-p mime)))
                   (progn                ; text file or supported binary file
                     ;; collect text up to link
-                    (when-let* ((text (buffer-substring-no-properties
-                                       from-pt (gptel-org--element-begin link))))
-                      (unless (string-blank-p text) (push (list :text text) parts)))
+                    (push (list :text (list from-pt (gptel-org--element-begin link)))
+                          parts)
                     ;; collect link
                     (push (if mime (list :media path :mime mime) (list :textfile path)) parts)
                     (setq from-pt (point)))
@@ -377,13 +376,12 @@ for inclusion into the user prompt for the gptel request."
                  (setq mime (mailcap-file-name-to-mime-type path))
                  (gptel--model-capable-p mime))
             ;; Collect text up to this image, and collect this image url
-            (when-let* ((text (buffer-substring-no-properties
-                               from-pt (gptel-org--element-begin link))))
-              (unless (string-blank-p text) (push (list :text text) parts)))
+            (push (list :text (list from-pt (gptel-org--element-begin link)))
+                  parts)
             (push (list :url raw-link :mime mime) parts)
             (setq from-pt (point))))))
       (unless (= from-pt end)
-        (push (list :text (buffer-substring-no-properties from-pt end)) parts)))
+        (push (list :text (list from-pt end)) parts)))
     (nreverse parts)))
 
 (defun gptel-org--link-standalone-p (object)
