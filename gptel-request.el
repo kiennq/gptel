@@ -2109,6 +2109,8 @@ be used to rerun or continue the request at a later time."
            fsm)))))
   fsm)
 
+(defvar gptel--has-media-p nil)
+
 (defun gptel--realize-query (fsm)
   "Realize the query payload for FSM from its prompt buffer.
 
@@ -2132,7 +2134,8 @@ Initiate the request when done."
                           ;; Check backend-specific streaming settings
                           (gptel-backend-stream gptel-backend)))
              (gptel-stream stream)
-             (full-prompt))
+             (full-prompt)
+             (gptel--has-media-p))
         (when (cdr directive)       ; prompt constructed from directive/template
           (save-excursion (goto-char (point-min))
                           (gptel--parse-list-and-insert (cdr directive))))
@@ -2154,6 +2157,7 @@ Initiate the request when done."
           (plist-put info :include-reasoning gptel-include-reasoning))
         (when (and gptel-use-tools gptel-tools)
           (plist-put info :tools gptel-tools))
+        (plist-put info :has-media gptel--has-media-p)
         (plist-put info :data
                    (gptel--request-data gptel-backend full-prompt)))
       (kill-buffer (current-buffer)))
@@ -2443,23 +2447,28 @@ Call CALLBACK with the response and INFO afterwards.  If omitted
 the response is inserted into the current buffer after point."
   (let* ((inhibit-message t)
          (message-log-max nil)
-         (url-request-method "POST")
          (info (gptel-fsm-info fsm))
          ;; We have to let-bind the following two since their dynamic
          ;; values are used for key lookup and url resolution
          (gptel-backend (plist-get info :backend))
          (gptel-model (plist-get info :model))
-         (url-request-extra-headers
-          (append '(("Content-Type" . "application/json"))
-                  (when-let* ((header (gptel-backend-header gptel-backend)))
-                    (if (functionp header)
-                        (funcall header) header))))
          (callback (or (plist-get info :callback) ;if not the first run
                        #'gptel--insert-response)) ;default callback
          ;; NOTE: We don't need the decode-coding-string dance here since we
          ;; don't pass it to the OS environment and Curl.
          (url-request-data
-          (gptel--json-encode (plist-get info :data))))
+          (gptel--json-encode (plist-get info :data)))
+
+         (url-request-method "POST")
+         (url-request-extra-headers
+          (append '(("Content-Type" . "application/json"))
+                  (when-let* ((header (gptel-backend-header gptel-backend)))
+                    (cond
+                     ((functionp header)
+                      (if (< 0 (car (func-arity header)))
+                          (funcall header info)
+                        (funcall header)))
+                     (header))))))
     (when (with-current-buffer (plist-get info :buffer)
             (and (derived-mode-p 'org-mode)
                  gptel-org-convert-response))
@@ -2586,8 +2595,12 @@ INFO contains the request data, TOKEN is a unique identifier."
          (headers
           (append '(("Content-Type" . "application/json"))
                   (when-let* ((header (gptel-backend-header gptel-backend)))
-                    (if (functionp header)
-                        (funcall header) header)))))
+                    (cond
+                     ((functionp header)
+                      (if (< 0 (car (func-arity header)))
+                          (funcall header info)
+                        (funcall header)))
+                     (header))))))
     (when gptel-log-level
       (when (eq gptel-log-level 'debug)
         (gptel--log (gptel--json-encode

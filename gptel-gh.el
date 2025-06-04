@@ -361,7 +361,7 @@ Then we need a session token."
 ;;;###autoload
 (cl-defun gptel-make-gh-copilot
     (name &key curl-args request-params
-          (header (lambda ()
+          (header (lambda (info)
                     (gptel--gh-auth)
                     `(("openai-intent" . "conversation-panel")
                       ("authorization" . ,(concat "Bearer "
@@ -370,7 +370,8 @@ Then we need a session token."
                       ("vscode-sessionid" . ,(or (gptel--gh-sessionid gptel-backend) ""))
                       ("vscode-machineid" . ,(or (gptel--gh-machineid gptel-backend) ""))
                       ,@(when (and gptel-track-media
-                                   (gptel--model-capable-p 'media))
+                                   (gptel--model-capable-p 'media)
+                                   (plist-get info :has-media))
                           `(("copilot-vision-request" . "true")))
                       ("copilot-integration-id" . "vscode-chat"))))
           (host "api.githubcopilot.com")
