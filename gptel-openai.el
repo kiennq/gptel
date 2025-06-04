@@ -42,6 +42,7 @@
 (defvar gptel-tools)
 (defvar gptel--schema)
 (defvar gptel--request-params)
+(defvar gptel--has-media-p)
 (declare-function gptel-context--collect-media "gptel-context")
 (declare-function gptel--base64-encode "gptel")
 (declare-function gptel--trim-prefixes "gptel")
@@ -479,9 +480,11 @@ format."
    and if text
    collect `(:type "text" :text ,text) into parts-array end
    else if media collect
-   `(:type "image_url"
-     :image_url (:url ,(concat "data:" (plist-get part :mime)
-                        ";base64," (gptel--base64-encode media))))
+   (progn
+     (setq gptel--has-media-p t)
+     `(:type "image_url"
+             :image_url (:url ,(concat "data:" (plist-get part :mime)
+                                ";base64," (gptel--base64-encode media)))))
    into parts-array
    else if (plist-get part :textfile) collect
    `(:type "text"
