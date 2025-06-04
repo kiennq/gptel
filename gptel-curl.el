@@ -78,8 +78,12 @@ REQUEST-DATA is the data to send, TOKEN is a unique identifier."
          (headers
           (append '(("Content-Type" . "application/json"))
                   (when-let* ((header (gptel-backend-header gptel-backend)))
-                    (if (functionp header)
-                        (funcall header) header)))))
+                    (cond
+                     ((functionp header)
+                      (if (< 0 (car (func-arity header)))
+                          (funcall header info)
+                        (funcall header)))
+                    (header))))))
     (when gptel-log-level
       (when (eq gptel-log-level 'debug)
         (gptel--log (gptel--json-encode
