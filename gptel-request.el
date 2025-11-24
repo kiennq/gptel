@@ -2588,10 +2588,6 @@ INFO contains the request data, TOKEN is a unique identifier."
          (gptel-backend (plist-get info :backend))
          (gptel-model (plist-get info :model))
          (gptel-stream (plist-get info :stream))
-         (url (let ((backend-url (gptel-backend-url gptel-backend)))
-                (if (functionp backend-url)
-                    (funcall backend-url) backend-url)))
-         (data-json (decode-coding-string (gptel--json-encode data) 'utf-8 t))
          (headers
           (append '(("Content-Type" . "application/json"))
                   (when-let* ((header (gptel-backend-header gptel-backend)))
@@ -2600,7 +2596,11 @@ INFO contains the request data, TOKEN is a unique identifier."
                       (if (< 0 (car (func-arity header)))
                           (funcall header info)
                         (funcall header)))
-                     (header))))))
+                     (header)))))
+         (url (let ((backend-url (gptel-backend-url gptel-backend)))
+                (if (functionp backend-url)
+                    (funcall backend-url) backend-url)))
+         (data-json (decode-coding-string (gptel--json-encode data) 'utf-8 t)))
     (when gptel-log-level
       (when (eq gptel-log-level 'debug)
         (gptel--log (gptel--json-encode
