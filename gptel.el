@@ -219,6 +219,7 @@
 (require 'map)
 (require 'text-property-search)
 (require 'cl-generic)
+(require 'mule-util)
 (eval-and-compile (require 'gptel-request))
 
 
@@ -454,17 +455,17 @@ Otherwise move ARG times, defaulting to 1."
     (forward-line 0)
     (let (start end (parity 0))
       (cond            ;Find start and end of block, with possible nested blocks
-       ((looking-at-p "^``` *\n")       ;end of block, find corresponding start
+       ((looking-at-p "^``` *\r?\n")       ;end of block, find corresponding start
         (setq parity -1 end (line-end-position))
         (while (and (not (= parity 0)) (not (bobp)) (forward-line -1))
-          (cond ((looking-at-p "^``` *\n") (cl-decf parity))
+          (cond ((looking-at-p "^``` *\r?\n") (cl-decf parity))
                 ((looking-at-p "^``` ?[a-z]") (cl-incf parity))))
         (when (= parity 0) (setq start (point))))
 
        ((looking-at-p "^``` ?[a-z]") ;beginning of block, find corresponding end
         (setq parity 1 start (point))
         (while (and (not (= parity 0)) (not (eobp)) (forward-line 1))
-          (cond ((looking-at-p "^``` *\n") (cl-decf parity))
+          (cond ((looking-at-p "^``` *\r?\n") (cl-decf parity))
                 ((looking-at-p "^``` ?[a-z]") (cl-incf parity))))
         (when (= parity 0) (setq end (line-end-position)))))
       (when (and start end)
@@ -478,7 +479,7 @@ Otherwise move ARG times, defaulting to 1."
             (overlay-put hide-ov 'evaporate t)
             (overlay-put hide-ov 'invisible t)
             (overlay-put hide-ov 'before-string
-                         (propertize "..." 'face 'shadow))))))))
+                         (propertize (truncate-string-ellipsis) 'face 'shadow))))))))
 
 (defsubst gptel--annotate-link (ov link-status)
   "Annotate link overlay OV according to LINK-STATUS.
