@@ -92,7 +92,7 @@
      :cutoff-date "2025-08")
     (gpt-5.2-codex
      :description "The best model for coding and agentic tasks"
-     :capabilities (media tool-use json url)
+     :capabilities (media tool-use json url responses-api)
      :mime-types ("image/jpeg" "image/png" "image/gif" "image/webp")
      :context-window 400
      :input-cost 1
