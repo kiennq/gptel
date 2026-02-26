@@ -11,6 +11,9 @@
   ChatGPT backend is created on the fly and used.
 
 ** New models and backends
+
+- GitHub Copilot backend: Add support for =gpt-5.3-codex=.
+
 ** New features and UI changes
 
 - When using ~setopt~ or the customize interface, ~gptel-backend~ can

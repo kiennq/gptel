@@ -98,6 +98,14 @@
      :input-cost 1
      :output-cost 1
      :cutoff-date "2025-08")
+    (gpt-5.3-codex
+     :description "The best model for coding and agentic tasks"
+     :capabilities (media tool-use json url responses-api)
+     :mime-types ("image/jpeg" "image/png" "image/gif" "image/webp")
+     :context-window 400
+     :input-cost 1
+     :output-cost 1
+     :cutoff-date "2025-08")
     (claude-sonnet-4
      :description "High-performance model with exceptional reasoning and efficiency"
      :capabilities (media tool-use cache)
